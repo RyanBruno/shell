@@ -159,6 +159,10 @@ void run_program()
             k += 2;
         }
 
+    if(internalCMD(tokens) == 1) {
+
+    } else { //Then process must be external
+        
         /* Fork and exec */
         switch (fork()) {
             case 0:
@@ -182,6 +186,7 @@ void run_program()
                 in[0] = out[0];
                 n++;
         };
+    }
         tokens += k;
     }
 
