@@ -9,7 +9,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "gbuf.c"
-#include "commandHandler.h"
+#include "commandHandler.c"
+#include "accnt.c"
 
 #define INPUT_SIZE  1024
 #define TOKEN_CAP   sizeof(char *) * 8
