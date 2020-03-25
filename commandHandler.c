@@ -1,4 +1,4 @@
-#include "commandHanlder.h"
+#include "commandHandler.h"
 //this function handles internal commands.
 
 struct rusage usage;
