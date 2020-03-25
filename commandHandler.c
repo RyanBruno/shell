@@ -1,4 +1,15 @@
 #include "commandHandler.h"
+#include "accnt.h"
+#include <stdio.h>
+#include <stdlib.h> 
+#include <regex.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 //this function handles internal commands.
 
 struct rusage usage;
@@ -17,7 +28,7 @@ int internalCMD(char** tokens) {
         //Exit the entire SUSHI shell.
         printf("Thank you for using our shell\n");        
         printf("Accounting information:\n");
-        if(getAccnt(RUSAGE_SELF, &usage) > 0) {
+        if(getAccnt(RUSAGE_SELF, &usage) > 0) { 
             fprintf(stderr, "Error getting usage. Must be borked\n");
         } else {
          printRusage(&usage);
@@ -116,8 +127,8 @@ int internalCMD(char** tokens) {
         printf("Please wait while we fetch the accounting data\n");
         if(getAccnt(RUSAGE_SELF, &usage) > 0) {
             fprintf(stderr, "Error getting usage. Must be borked\n");
-        } else {
-         printRusage(&usage);
+        } else { 
+         printRusage(&usage); 
         }
         return 1;
     }
