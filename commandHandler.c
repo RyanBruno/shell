@@ -21,8 +21,11 @@ int internalCMD(char** tokens) {
         //Check if tokens[1] || tokens[2] is null
         if(tokens[1] && tokens[2] != NULL) { 
             //do things here to set the variable
-            setenv(tokens[1], tokens[2],1);
+            if(setenv(tokens[1], tokens[2],1) < 0) {
+                    fprintf(stderr, "Error setting variable.\n");
+            }
 
+            
         }else {
             printf("Please use: setenv var value\n");
         }
@@ -36,7 +39,9 @@ int internalCMD(char** tokens) {
         //Check if tokens[1] is null
         if(tokens[1] != NULL) { 
             //do things here to unset the variable
-            unsetenv(tokens[1]);
+            if(unsetenv(tokens[1]) < 0) {
+                fprintf(stderr, "Error unsetting variable.\n");
+            }
 
         }else {
             printf("Please use: unsetenv var\n");
@@ -63,6 +68,7 @@ int internalCMD(char** tokens) {
                 //Move the memory over two spaces to delete the first two tokens.
                 memmove(tokens[1], &tokens[1][2], strlen(tokens[1]));
                 
+                
                 strcat(homedir, "/");
                 strcat(homedir, tokens[1]);
                 strcpy(tokens[1], homedir);
@@ -80,6 +86,25 @@ int internalCMD(char** tokens) {
 
         return 1;
 
+    }
+
+    if(!(strcmp(tokens[0], "pwd"))) {
+        //Print the working directory
+        printf("Thank you for using our shell\n");
+        char cwd[1024];
+        if(getcwd(cwd, sizeof(cwd)) != NULL) {
+                //Check and make sure it is not empty
+            printf("%s\n", cwd);
+        } else {
+            fprintf(stderr, "Error getting current working derectory.\n");
+        }
+        return 1;
+    }
+
+    if(!(strcmp(tokens[0], "accnt"))) {
+        //Get the accounting information for the shell
+        printf("Please wait while we fetch the accounting data\n");
+        return 1;
     }
 
 
