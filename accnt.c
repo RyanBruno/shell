@@ -1,15 +1,5 @@
 //This file is for the accounting information
 #include "accnt.h"
-#include <stdio.h>
-#include <stdlib.h> 
-#include <regex.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
 
 
 int getAccnt(int who, struct rusage *usage) {
