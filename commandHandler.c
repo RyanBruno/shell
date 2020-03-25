@@ -25,7 +25,13 @@ int internalCMD(char** tokens) {
 
     if(!(strcmp(tokens[0], "exit"))) {
         //Exit the entire SUSHI shell.
-        printf("Thank you for using our shell\n");
+        printf("Thank you for using our shell\n");        
+        printf("Accounting information:\n");
+        if(getAccnt(RUSAGE_SELF, &usage) > 0) {
+            fprintf(stderr, "Error getting usage. Must be borked\n");
+        } else {
+         printRusage(&usage);
+        }
         exit(1); //this needs to be running in the parent process. This will kill all children.
 
     }
@@ -118,7 +124,7 @@ int internalCMD(char** tokens) {
     if(!(strcmp(tokens[0], "accnt"))) {
         //Get the accounting information for the shell
         printf("Please wait while we fetch the accounting data\n");
-        if(getAccnt(RUSAGE_SELF, &usage) < 0) {
+        if(getAccnt(RUSAGE_SELF, &usage) > 0) {
             fprintf(stderr, "Error getting usage. Must be borked\n");
         } else {
          printRusage(&usage);
