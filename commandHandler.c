@@ -1,14 +1,4 @@
 #include "commandHanlder.h"
-#include <stdio.h>
-#include <stdlib.h> 
-#include <regex.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
 //this function handles internal commands.
 
 struct rusage usage;
