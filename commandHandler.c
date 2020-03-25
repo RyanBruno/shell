@@ -10,6 +10,9 @@
 #include <fcntl.h>
 #include <errno.h>
 //this function handles internal commands.
+
+struct rusage usage;
+
 int internalCMD(char** tokens) {
     if(!(strcmp(tokens[0], "sushi"))) { //If it is the sushi command, do 
     //Set this to do something cooler later on. Also add some other kind of functional
@@ -115,6 +118,11 @@ int internalCMD(char** tokens) {
     if(!(strcmp(tokens[0], "accnt"))) {
         //Get the accounting information for the shell
         printf("Please wait while we fetch the accounting data\n");
+        if(getAccnt(RUSAGE_SELF, &usage) < 0) {
+            fprintf(stderr, "Error getting usage. Must be borked\n");
+        } else {
+         printRusage(&usage);
+        }
         return 1;
     }
 
