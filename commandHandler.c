@@ -1,3 +1,14 @@
+#include "commandHanlder.h"
+#include <stdio.h>
+#include <stdlib.h> 
+#include <regex.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 //this function handles internal commands.
 int internalCMD(char** tokens) {
     if(!(strcmp(tokens[0], "sushi"))) { //If it is the sushi command, do 
