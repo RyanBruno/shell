@@ -29,16 +29,18 @@ char input_buffer[INPUT_SIZE];
 const char *st[4] = { "|" , ">>", ">" , "<" };
 
 struct gbuf_t tok_buf;
-struct gbuf_t pid_buf;
+volatile int r = 0;
 
 void signal_handle(int sig)
 {
-    if (!(sig & SIGCHLD)) {
-        pid_t* p = (pid_t*) (pid_buf.gb_data);
-        if (p == NULL) return;
+    if (sig & SIGCHLD) {
+        wait(NULL);
+    } else {
+        if (r--)
+            return;
 
-        for (int i = pid_buf.gb_s / sizeof(pid_t); i > 0; i--)
-            kill(pid_buf.gb_data[i - 1], sig);
+        kill(0, sig);
+        r = 1;
     }
 }
 
@@ -59,8 +61,8 @@ void tokenize()
 
         /* Handle special tokens */
         for (int i = 0; i < 4; i++) {
-            /* Because of how this if statement works "<<" must
-             * be before "<" in "st"
+            /* Because of how this if statement works
+             * "<<" must be before "<" in "st"
              */
             if (strncmp(st[i], token, strlen(st[i])) == 0) {
                 /* Add a null and assign the token */
@@ -97,7 +99,6 @@ void run_program()
 
     /* Setup */
     gbuf_setup(&tok_buf, TOKEN_CAP);
-    gbuf_setup(&pid_buf, PID_CAP);
 
     /* Tokenize */
     tokenize();
@@ -156,10 +157,9 @@ void run_program()
             k += 2;
         }
 
-        if(internalCMD(tokens) == 1) {
-            tokens += k;
+        /* Check and run internal commands */
+        if(internalCMD(tokens) == 1)
             continue;
-        }
 
         /* Fork and exec */
         switch ((pid = fork())) {
@@ -179,7 +179,6 @@ void run_program()
                 break;
             default:
                 // Parent
-                gbuf_push(&pid_buf, (char*) &pid, sizeof(pid_t));
                 close(fd[0]);
                 close(fd[1]);
                 fd[0] = next_fd;
@@ -193,8 +192,6 @@ void run_program()
         wait(NULL);
 
     free(tok_buf.gb_data);
-    free(pid_buf.gb_data);
-    pid_buf.gb_data = NULL;
 }
 
 void read_line(int fd)
@@ -216,27 +213,27 @@ int main(int argc, const char** argv)
     /* Compile regex */
     regcomp(&reg, "(\"[^\"]+\"|<|>|>>|\\||[^ <>(>>)\\|]+)", REG_EXTENDED);
 
+    /* Register signal handers */
+    setsid();
+    signal(SIGINT, signal_handle);
+    signal(SIGCHLD, signal_handle);
+    signal(SIGUSR1, signal_handle);
+    signal(SIGUSR2, signal_handle);
+
     /* 
      * Read .sushrc if exists
      * line-by-line send to command handler
      */
-
-    /* Register signal handers */
-    pid_buf.gb_data = NULL;
-    signal(SIGINT | SIGCHLD | SIGUSR1 | SIGUSR2, signal_handle);
-
     while (1) {
         const char *prompt;
 
         /* Setup */
         prompt = getenv("PS1");
-        prompt = "prompt>";
         printf("%s ", prompt);
         fflush(stdout);
 
         /* Read in string */
         read_line(STDIN_FILENO);
-        
 
         /* Run the program */
         run_program();

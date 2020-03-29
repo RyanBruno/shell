@@ -31,7 +31,7 @@ int internalCMD(char** tokens) {
         if(getAccnt(RUSAGE_SELF, &usage) > 0) { 
             fprintf(stderr, "Error getting usage. Must be borked\n");
         } else {
-         printRusage(&usage);
+            printRusage(&usage);
         }
         exit(1); //this needs to be running in the parent process. This will kill all children.
 
@@ -40,14 +40,13 @@ int internalCMD(char** tokens) {
     if(!(strcmp(tokens[0], "setenv"))) {
         //takes input like: "setenv var 'value'"
         //Check if tokens[1] || tokens[2] is null
-        if(tokens[1] && tokens[2] != NULL) { 
+        if(tokens[1] != NULL && tokens[2] != NULL) {
             //do things here to set the variable
-            if(setenv(tokens[1], tokens[2],1) < 0) {
-                    fprintf(stderr, "Error setting variable.\n");
+            if(setenv(tokens[1], tokens[2], 1) < 0) {
+                fprintf(stderr, "Error setting variable.\n");
             }
 
-            
-        }else {
+        } else {
             printf("Please use: setenv var value\n");
         }
 
@@ -58,55 +57,52 @@ int internalCMD(char** tokens) {
     if(!(strcmp(tokens[0], "unsetenv"))) {
         //takes input like: "unsetenv var"
         //Check if tokens[1] is null
-        if(tokens[1] != NULL) { 
+        if(tokens[1] != NULL) {
             //do things here to unset the variable
             if(unsetenv(tokens[1]) < 0) {
                 fprintf(stderr, "Error unsetting variable.\n");
             }
 
-        }else {
+        } else {
             printf("Please use: unsetenv var\n");
         }
 
         return 1;
-
     }
 
-        if(!(strcmp(tokens[0], "cd"))) {
+    if(!(strcmp(tokens[0], "cd"))) {
         //takes input like: "cd 'dir'"
         //Check if tokens[1] is null
-        if(tokens[1] != NULL) { 
+        if(tokens[1] != NULL) {
             //do things here to set the dir
             //Make sure to check if ~/ is used. If it is, replace it with home director
             
             //Check if the first two chars are ~/
             if(tokens[1][0] == '~' && tokens[1][1] == '/') {
                 //If true, then we need the home directory. Hopefully it is set. If not give an error
-            char *homedir;
-            if ((homedir = getenv("HOME")) == NULL) {
-               fprintf(stderr, "Error! Please set the $HOME environment variable\n");
-            }
+                char *homedir;
+                if ((homedir = getenv("HOME")) == NULL) {
+                   fprintf(stderr, "Error! Please set the $HOME environment variable\n");
+                   return 1;
+                }
                 //Move the memory over two spaces to delete the first two tokens.
-                memmove(tokens[1], &tokens[1][2], strlen(tokens[1]));
-                
-                
+                memmove(tokens[1], &tokens[1][2], strlen(tokens[1]) - 1);
+
                 strcat(homedir, "/");
                 strcat(homedir, tokens[1]);
                 strcpy(tokens[1], homedir);
-                
             }
             printf("%s\n", tokens[1]);
-            if(chdir(tokens[1]) < 0) { 
+            if(chdir(tokens[1]) < 0) {
                 //were borked
                 fprintf(stderr, "Error changing directory. No such file or directory\n");
             }
 
-        }else {
+        } else {
             printf("Please use: cd 'dir'\n");
         }
 
         return 1;
-
     }
 
     if(!(strcmp(tokens[0], "pwd"))) {
@@ -128,12 +124,10 @@ int internalCMD(char** tokens) {
         if(getAccnt(RUSAGE_SELF, &usage) > 0) {
             fprintf(stderr, "Error getting usage. Must be borked\n");
         } else { 
-         printRusage(&usage); 
+            printRusage(&usage);
         }
         return 1;
     }
-
-
 
     return -1; //return so the caller knows we have not executed the command
 } 
