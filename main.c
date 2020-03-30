@@ -158,8 +158,9 @@ void run_program()
         }
 
         /* Check and run internal commands */
-        if(internalCMD(tokens) == 1)
-            continue;
+        /* This statement has to encase the switch statement. Otherwise you get an infinate loop */
+        if(internalCMD(tokens) != 1) {
+            
 
         /* Fork and exec */
         switch ((pid = fork())) {
@@ -184,6 +185,7 @@ void run_program()
                 fd[0] = next_fd;
                 n++;
         };
+    }
         tokens += k;
     }
 
@@ -224,11 +226,18 @@ int main(int argc, const char** argv)
      * Read .sushrc if exists
      * line-by-line send to command handler
      */
+    
+
+
     while (1) {
         const char *prompt;
 
         /* Setup */
         prompt = getenv("PS1");
+        if(prompt == NULL) {
+            //If prompt is null, just use a carrot
+            prompt = ">>>";
+        }
         printf("%s ", prompt);
         fflush(stdout);
 
