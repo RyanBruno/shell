@@ -12,6 +12,8 @@
 #include <errno.h>
 //this function handles internal commands.
 
+#define MAXBUFSIZE 1024
+
 struct rusage usage;
 
 int internalCMD(char** tokens) {
@@ -62,7 +64,7 @@ int internalCMD(char** tokens) {
             if(unsetenv(tokens[1]) < 0) {
                 fprintf(stderr, "Error unsetting variable.\n");
             }
-
+        //if the command is not set using the proper number of arguments, remind the user how to use the command.
         } else {
             printf("Please use: unsetenv var\n");
         }
@@ -88,18 +90,30 @@ int internalCMD(char** tokens) {
                 //Move the memory over two spaces to delete the first two tokens.
                 memmove(tokens[1], &tokens[1][2], strlen(tokens[1]) - 1);
 
+                //manipulate the strings to get the desired output
                 strcat(homedir, "/");
                 strcat(homedir, tokens[1]);
                 strcpy(tokens[1], homedir);
             }
             printf("%s\n", tokens[1]);
             if(chdir(tokens[1]) < 0) {
-                //were borked
+                //we are borked
                 fprintf(stderr, "Error changing directory. No such file or directory\n");
             }
 
         } else {
-            printf("Please use: cd 'dir'\n");
+            //Then we assume that the user wanted to change to the $HOME variable
+                char *homedir;
+                if ((homedir = getenv("HOME")) == NULL) {
+                   fprintf(stderr, "Error! Please set the $HOME environment variable\n");
+                   return 1;
+                }
+                if(chdir(homedir) < 0) {
+                //we are borked
+                fprintf(stderr, "Error changing directory. No such file or directory\n");
+            }
+            //Print the users new directory
+            printf("%s\n", homedir);
         }
 
         return 1;
@@ -108,11 +122,14 @@ int internalCMD(char** tokens) {
     if(!(strcmp(tokens[0], "pwd"))) {
         //Print the working directory
         printf("Thank you for using our shell\n");
-        char cwd[1024];
+        //set a max buffer size. 
+        char cwd[MAXBUFSIZE];
+        //Check and make sure it is not empty
         if(getcwd(cwd, sizeof(cwd)) != NULL) {
-                //Check and make sure it is not empty
+            //Line is not empty, print line
             printf("%s\n", cwd);
         } else {
+            //Somehow the CWD is in an error state. Print to STDERR
             fprintf(stderr, "Error getting current working derectory.\n");
         }
         return 1;
@@ -122,11 +139,47 @@ int internalCMD(char** tokens) {
         //Get the accounting information for the shell
         printf("Please wait while we fetch the accounting data\n");
         if(getAccnt(RUSAGE_SELF, &usage) > 0) {
+            //Accounting information returned -1. Must be borked. Print to STDERR
             fprintf(stderr, "Error getting usage. Must be borked\n");
         } else { 
+            //Returned 1. Pointer is full. Print the rusage structure.
             printRusage(&usage);
         }
-        return 1;
+        return 1; //return to the caller complete.
+    }
+
+        if(!(strcmp(tokens[0], "ls"))) {
+        //if someone types ls into the shell, we need to make sure that the ~/ variable is set properly.
+            if(tokens[1] != NULL) {
+            //Make sure to check if ~/ is used. If it is, replace it with home director
+            
+            //Check if the first two chars are ~/
+            if(tokens[1][0] == '~' && tokens[1][1] == '/') {
+                //If true, then we need the home directory. Hopefully it is set. If not give an error
+                char *homedir;
+                if ((homedir = getenv("HOME")) == NULL) {
+                   fprintf(stderr, "Error! Please set the $HOME environment variable\n");
+                   return 1;
+                }
+                //Move the memory over two spaces to delete the first two tokens.
+                memmove(tokens[1], &tokens[1][2], strlen(tokens[1]) - 1);
+
+                //manipulate the strings to get the desired output
+                strcat(homedir, "/");
+                strcat(homedir, tokens[1]);
+                strcpy(tokens[1], homedir);
+            }
+            printf("%s\n", tokens[1]);
+            if(chdir(tokens[1]) < 0) {
+                //we are borked
+                fprintf(stderr, "Error changing directory. No such file or directory\n");
+            }
+
+        }
+    
+
+
+        return -1; //return -1, but with the changed variable so the caller will issue like normal just with the changed variable.
     }
 
     return -1; //return so the caller knows we have not executed the command
