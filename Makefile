@@ -1,14 +1,11 @@
 CC = cc
 FLAGS = -g -Wall -Werror
 
-ALL: main.o commandHandler.o accnt.o
-	$(CC) $(FLAGS) -o main main.o commandHandler.o accnt.o
+ALL: main.o accnt.o
+	$(CC) $(FLAGS) -o main main.o accnt.o
 
-main.o: main.c
+main.o: main.c commandHandler.c
 	$(CC) -c $(FLAGS) main.c
-
-commandHandler.o: commandHandler.c commandHandler.h
-	$(CC) -c $(FLAGS) commandHandler.c
 
 accnt.o: accnt.c accnt.h
 	$(CC) -c $(FLAGS) accnt.c

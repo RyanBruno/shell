@@ -3,18 +3,18 @@
 #include <regex.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "gbuf.c"
-#include "commandHandler.h"
+#include "accnt.h"
+#include "commandHandler.c"
 
 #define INPUT_SIZE  1024
 #define TOKEN_CAP   sizeof(char *) * 8
-#define PID_CAP     sizeof(pid_t) * 8
 
 #define CHECK(i, msg, ...) \
     if (i == -1) {\
@@ -33,14 +33,17 @@ volatile int r = 0;
 
 void signal_handle(int sig)
 {
-    if (sig & SIGCHLD) {
-        wait(NULL);
-    } else {
+    if (sig & SIGINT) {
         if (r--)
             return;
 
         kill(0, sig);
-        r = 1;
+    } else if (sig & SIGCHLD) {
+        wait(NULL);
+    } else if (sig & SIGUSR1) {
+        printRusage(RUSAGE_SELF);
+    } else if (sig & SIGUSR2) {
+        printRusage(RUSAGE_SELF); // IDK what to use here
     }
 }
 
@@ -116,7 +119,7 @@ void run_program()
         int k = 0;
 
         /* Find next command */
-        while (tokens[++k] != NULL) {}
+        while (tokens[++k] != NULL) { }
         k++;
         
         /* Reset Stdout */
@@ -157,10 +160,11 @@ void run_program()
             k += 2;
         }
 
-        /* Check and run internal commands */
-        /* This statement has to encase the switch statement. Otherwise you get an infinate loop */
-        if(internalCMD(tokens) != 1) {
-            
+        if (is_internal(tokens)) {
+            internalCMD(tokens);
+            tokens += k;
+            continue;
+        }
 
         /* Fork and exec */
         switch ((pid = fork())) {
@@ -185,7 +189,6 @@ void run_program()
                 fd[0] = next_fd;
                 n++;
         };
-    }
         tokens += k;
     }
 
@@ -212,6 +215,7 @@ void read_line(int fd)
 
 int main(int argc, const char** argv)
 {
+
     /* Compile regex */
     regcomp(&reg, "(\"[^\"]+\"|<|>|>>|\\||[^ <>(>>)\\|]+)", REG_EXTENDED);
 
@@ -226,18 +230,15 @@ int main(int argc, const char** argv)
      * Read .sushrc if exists
      * line-by-line send to command handler
      */
-    
 
 
     while (1) {
-        const char *prompt;
-
         /* Setup */
-        prompt = getenv("PS1");
-        if(prompt == NULL) {
-            //If prompt is null, just use a carrot
-            prompt = ">>>";
-        }
+        if ((prompt = getenv("PS1")) == NULL)
+            prompt = "#";
+
+        prompt = "#";
+        /* Print prompt */
         printf("%s ", prompt);
         fflush(stdout);
 
