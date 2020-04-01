@@ -213,6 +213,43 @@ void read_line(int fd)
     input_buffer[i - 1] = '\0';
 }
 
+int readSushrc() {
+
+    /* this function will read all of the lines from the file and print them */
+    char homedir[INPUT_SIZE];
+    char *homeenv; 
+        if ((homeenv = getenv("HOME")) == NULL) {
+            //If the home variable is not set, we cannot check for the .sushrc file
+            fprintf(stderr, "Error! Please set the $HOME environment variable\n");
+           return -1; //failed to read file
+        }
+
+        //Make sure to copy the content of the pointer, not the pointer
+        strcpy(homedir, homeenv);
+        strcat(homedir,"/.sushrc");
+        
+    FILE *fid = fopen(homedir,"r");
+    if(fid == NULL) {
+        printf("%s not found\n", homedir);
+        return -1; //failed to read file
+    }
+
+
+    char buf[INPUT_SIZE];
+    // reads text in from .sushrc file
+    while (fgets(buf, sizeof(buf), fid)) {
+        printf("%s", buf);
+        buf[(strlen(buf)) -1] = '\0'; //set a terminate token at the end of the string.
+        strcpy(input_buffer, buf);
+        run_program();
+    }
+    fclose(fid);
+
+    
+
+return 1; // read file success
+}
+
 int main(int argc, const char** argv)
 {
 
@@ -230,6 +267,7 @@ int main(int argc, const char** argv)
      * Read .sushrc if exists
      * line-by-line send to command handler
      */
+    readSushrc();
 
 
     while (1) {
