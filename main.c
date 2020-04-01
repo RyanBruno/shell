@@ -15,6 +15,7 @@
 
 #define INPUT_SIZE  1024
 #define TOKEN_CAP   sizeof(char *) * 8
+#define EXTRA_CAP   sizeof(char *) * 8
 
 #define CHECK(i, msg, ...) \
     if (i == -1) {\
@@ -29,6 +30,8 @@ char input_buffer[INPUT_SIZE];
 const char *st[4] = { "|" , ">>", ">" , "<" };
 
 struct gbuf_t tok_buf;
+struct gbuf_t ext_buf;
+
 volatile int r = 0;
 
 void signal_handle(int sig)
@@ -93,6 +96,48 @@ void tokenize()
     gbuf_push(&tok_buf, (void*) &null, sizeof(char*));
 }
 
+void replace_home_dir(char** tokens)
+{
+    const char* home;
+
+    if ((home = getenv("HOME")) == NULL) {
+        /* Just print a message and fall through */
+        fprintf(stderr, "Home directory is not set\n");
+        return;
+    }
+
+    while (1) {
+        /* Loop until the double NULL */
+        if (tokens[0] == NULL) {
+            if (tokens[1] == NULL) break;
+            /* My only goto statement I sware */
+            goto loop;
+        }
+
+        /* Ignore any quoted entries */
+        if (tokens[0][0] == '"')
+            /* I lied */
+            goto loop;
+
+        for (char* ptr = tokens[0]; ptr[0] != '\0'; ptr++) {
+            if (ptr[0] == '~') {
+                /* Split the string at the ~ */
+                ptr[0] = '\0';
+
+                /* Copy the first part */
+                tokens[0] = gbuf_push_2(&ext_buf, tokens[0], strlen(tokens[0]));
+                /* Copy the home dir */
+                            gbuf_push(&ext_buf, home, strlen(home));
+                /* Then the rest of the string */
+                ptr =       gbuf_push_2(&ext_buf, ptr + 1, strlen(ptr + 1));
+            }
+        }
+loop:
+        /* Go to the next word */
+        tokens++;
+    }
+}
+
 void run_program()
 {
     int n = 0;
@@ -102,10 +147,14 @@ void run_program()
 
     /* Setup */
     gbuf_setup(&tok_buf, TOKEN_CAP);
+    gbuf_setup(&ext_buf, EXTRA_CAP);
 
     /* Tokenize */
     tokenize();
     tokens = (char**) tok_buf.gb_data;
+
+    /* Replace ~ the home dir */
+    replace_home_dir(tokens);
 
     /* Create some pipes then... */
     pipe(fd);
@@ -197,6 +246,7 @@ void run_program()
         wait(NULL);
 
     free(tok_buf.gb_data);
+    free(ext_buf.gb_data);
 }
 
 void read_line(int fd)

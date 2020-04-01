@@ -18,7 +18,7 @@ void gbuf_setup(struct gbuf_t *gb, size_t c)
             "Cannot malloc (%d)\n", errno);
 }
 
-void gbuf_push(struct gbuf_t* gb, char* item, size_t s)
+void gbuf_push(struct gbuf_t* gb, const char* item, size_t s)
 {
     while (gb->gb_s + s > gb->gb_c)
         ENSURE((gb->gb_data = realloc(gb->gb_data, gb->gb_c *= 2)),
@@ -26,4 +26,16 @@ void gbuf_push(struct gbuf_t* gb, char* item, size_t s)
 
     memcpy(gb->gb_data + gb->gb_s, item, s);
     gb->gb_s += s;
+}
+
+char* gbuf_push_2(struct gbuf_t* gb, const char* item, size_t s)
+{
+    while (gb->gb_s + s > gb->gb_c)
+        ENSURE((gb->gb_data = realloc(gb->gb_data, gb->gb_c *= 2)),
+                "Cannot realloc (%d)\n", errno)
+
+    memcpy(gb->gb_data + gb->gb_s, item, s);
+    gb->gb_s += s;
+
+    return (gb->gb_data + gb->gb_s) - s;
 }
