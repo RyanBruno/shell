@@ -9,13 +9,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "accnt.h"
 
 #define MAXBUFSIZE 1024
 
-#define ERROR(msg) { \
-    fprintf(stderr, msg); \
-    return; } \
+void rusage_print(struct rusage* r);
 
 const char* commands[] = {
     "sushi",
@@ -27,7 +24,8 @@ const char* commands[] = {
     "accnt",
 };
 
-int is_internal(char** tokens) {
+int is_internal(char** tokens)
+{
     for (int i = 0; i < 7; i++)
         if (strcmp(tokens[0], commands[i]) == 0)
             return 1;
@@ -35,7 +33,8 @@ int is_internal(char** tokens) {
     return 0;
 }
 
-void internalCMD(char** tokens) {
+void internalCMD(char** tokens)
+{
     if(!(strcmp(tokens[0], "sushi"))) { //If it is the sushi command, do 
     //Set this to do something cooler later on. Also add some other kind of functional
     //commands for like hotkeying into directories, ect
@@ -49,7 +48,7 @@ void internalCMD(char** tokens) {
         printf("Thank you for using our shell\n");        
         printf("Accounting information:\n");
 
-        printRusage(RUSAGE_SELF);
+        rusage_print(&total_usage);
         exit(1); //this needs to be running in the parent process. This will kill all children.
     }
 
@@ -88,7 +87,6 @@ void internalCMD(char** tokens) {
             chdir(homedir);
         }
 
-
         /* Remove ~ and ~/ */
         if (dir != NULL && dir[0] == '~') {
             dir++;
@@ -104,18 +102,19 @@ void internalCMD(char** tokens) {
     }
 
     if (!(strcmp(tokens[0], "pwd"))) {
-        char cwd[MAXBUFSIZE];
-        //Check and make sure it is not empty
-        if ((getcwd(cwd, MAXBUFSIZE)) == NULL)
+        char* cwd;
+
+        if ((cwd = getcwd(NULL, MAXBUFSIZE)) == NULL)
             ERROR("Error getting current working derectory.\n");
 
         printf("%s\n", cwd);
     }
 
     if (!(strcmp(tokens[0], "accnt"))) {
-        //Get the accounting information for the shell
-        printf("Please wait while we fetch the accounting data\n");
+        struct rusage usage;
 
-        printRusage(RUSAGE_SELF);
+        if(getrusage(RUSAGE_SELF, &usage) == -1)
+            ERROR("Error getting rusage.\n");
+        rusage_print(&usage);
     }
 } 
