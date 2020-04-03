@@ -1,11 +1,11 @@
 //This file is for the accounting information
 
-struct rusage total_usage;
-
 void rusage_add(struct rusage* dest, struct rusage* src)
 {
-    //dest->ru_utime      += src->ru_utime; // TODO
-    //dest->ru_stime      += src->ru_stime;
+    dest->ru_utime.tv_sec += src->ru_utime.tv_sec;
+    dest->ru_utime.tv_usec+= src->ru_utime.tv_usec;
+    dest->ru_stime.tv_sec += src->ru_stime.tv_sec;
+    dest->ru_stime.tv_usec+= src->ru_stime.tv_usec;
     dest->ru_maxrss     += src->ru_maxrss;
     dest->ru_ixrss      += src->ru_ixrss;
     dest->ru_idrss      += src->ru_idrss;

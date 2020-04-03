@@ -26,6 +26,7 @@ regex_t reg;
 void *null = NULL;
 const char *prompt;
 char input_buffer[INPUT_SIZE];
+const char* home = NULL;
 
 const char *st[4] = { "|" , ">>", ">" , "<" };
 
@@ -52,7 +53,7 @@ void signal_handle(int sig)
 
         /* Wait for the child and total rusage */
         wait3(NULL, 0, &usage);
-        rusage_add(&total_usage, &usage);
+        rusage_print(&usage);
     } else if (sig & SIGUSR1) {
         struct rusage usage;
 
@@ -62,11 +63,14 @@ void signal_handle(int sig)
 
     } else if (sig & SIGUSR2) {
         struct rusage usage;
+        struct rusage cusage;
 
-        /* Get and print process usage + total */
+        /* Get and print process usage + children */
         if(getrusage(RUSAGE_SELF, &usage) == 0) {
-            rusage_add(&usage, &total_usage);
-            rusage_print(&usage);
+            if(getrusage(RUSAGE_CHILDREN, &cusage) == 0) {
+                rusage_add(&usage, &cusage);
+                rusage_print(&usage);
+            }
         }
     }
 }
@@ -119,11 +123,9 @@ void tokenize()
 
 void replace_home_dir(char** tokens)
 {
-    const char* home;
 
-    if ((home = getenv("HOME")) == NULL)
-        /* Just print a message and fall through */
-        ERROR("Home directory is not set\n")
+    if (home == NULL)
+        return;
 
     while (1) {
         /* Loop until the double NULL */
@@ -201,7 +203,7 @@ void run_program()
     /* Replace ~ with the home dir */
     replace_home_dir(tokens);
 
-    /* Replace ~ with the home dir */
+    /* Remove quotes around tokens */
     remove_quotes(tokens);
 
     /* Create some pipes then... */
@@ -247,7 +249,8 @@ void run_program()
         if (tokens[k] != NULL && tokens[k][0] == '>') {
             if (fd[1] != STDOUT_FILENO) close(fd[1]);
 
-            if ((fd[1] = open(tokens[k + 1], O_CREAT | O_RDONLY)) == -1)
+            printf("%s\n", tokens[k + 1]);
+            if ((fd[1] = open(tokens[k + 1], O_CREAT | O_RDWR)) == -1)
                 ERROR("Bad filename: %s\n", tokens[k + 1])
 
             /* Append */
@@ -257,8 +260,7 @@ void run_program()
             k += 2;
         }
 
-        if (is_internal(tokens)) {
-            internalCMD(tokens);
+        if (internalCMD(tokens)) {
             tokens += k;
             continue;
         }
@@ -290,12 +292,8 @@ void run_program()
     }
 
     /* Wait for children to die */
-    while (n-- > 0) {
-        struct rusage usage;
-
-        wait3(NULL, 0, &usage);
-        rusage_add(&total_usage, &usage);
-    }
+    while (n-- > 0)
+        wait(NULL);
 
     free(tok_buf.gb_data);
     free(ext_buf.gb_data);
@@ -319,10 +317,9 @@ int read_line(int fd)
 void readsushrc()
 {
     /* this function will read all of the lines from the file and print them */
-    char *home; 
     FILE *fid;
 
-    if ((home = getenv("HOME")) == NULL)
+    if (home == NULL)
         //If the home variable is not set, we cannot check for the .sushrc file
         ERROR("Error! Please set the $HOME environment variable\n");
 
@@ -359,7 +356,7 @@ int main(int argc, const char** argv)
     signal(SIGUSR2, signal_handle);
 
     /* Setup */
-    memset(&total_usage, '\0', sizeof(struct rusage));
+    home = getenv("HOME"); // Can be NULL
 
     /* Read .sushrc if exists */
     readsushrc();
