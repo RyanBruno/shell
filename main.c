@@ -4,23 +4,23 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
 #include <signal.h>
+#include <errno.h>
+
 #include <sys/wait.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
 #include "gbuf.c"
-#include "accnt.h"
-#include "commandHandler.c"
 
 #define INPUT_SIZE  1024
 #define TOKEN_CAP   sizeof(char *) * 8
 #define EXTRA_CAP   sizeof(char *) * 8
 
-#define CHECK(i, msg, ...) \
-    if (i == -1) {\
-        fprintf(stderr, msg, __VA_ARGS__); \
-        exit(-1); }
+#define ERROR(...) { \
+    fprintf(stderr, __VA_ARGS__); \
+    return; } \
 
 regex_t reg;
 void *null = NULL;
@@ -32,21 +32,42 @@ const char *st[4] = { "|" , ">>", ">" , "<" };
 struct gbuf_t tok_buf;
 struct gbuf_t ext_buf;
 
+#include "accounting.c"
+#include "commandHandler.c"
+
 volatile int r = 0;
 
 void signal_handle(int sig)
 {
     if (sig & SIGINT) {
+        /* Catch and forward SEGINT to group (children) */
         if (r--)
             return;
 
+        /* Mechanism for ignoring forwarded signals */
+        r = 1;
         kill(0, sig);
     } else if (sig & SIGCHLD) {
-        wait(NULL);
+        struct rusage usage;
+
+        /* Wait for the child and total rusage */
+        wait3(NULL, 0, &usage);
+        rusage_add(&total_usage, &usage);
     } else if (sig & SIGUSR1) {
-        printRusage(RUSAGE_SELF);
+        struct rusage usage;
+
+        /* Get and print current processes usage */
+        if(getrusage(RUSAGE_SELF, &usage) == 0)
+            rusage_print(&usage);
+
     } else if (sig & SIGUSR2) {
-        printRusage(RUSAGE_SELF); // IDK what to use here
+        struct rusage usage;
+
+        /* Get and print process usage + total */
+        if(getrusage(RUSAGE_SELF, &usage) == 0) {
+            rusage_add(&usage, &total_usage);
+            rusage_print(&usage);
+        }
     }
 }
 
@@ -100,11 +121,9 @@ void replace_home_dir(char** tokens)
 {
     const char* home;
 
-    if ((home = getenv("HOME")) == NULL) {
+    if ((home = getenv("HOME")) == NULL)
         /* Just print a message and fall through */
-        fprintf(stderr, "Home directory is not set\n");
-        return;
-    }
+        ERROR("Home directory is not set\n")
 
     while (1) {
         /* Loop until the double NULL */
@@ -138,6 +157,32 @@ loop:
     }
 }
 
+void remove_quotes(char** tokens)
+{
+    while (1) {
+        /* Loop until the double NULL */
+        if (tokens[0] == NULL) {
+            if (tokens[1] == NULL) break;
+
+            tokens++;
+            continue;
+        }
+        /* Just push pointer up one and replace " with \0 */
+        if (tokens[0][0] == '"') {
+            tokens[0]++;
+            for (int i = 0; 1 ; i++)
+                if (tokens[0][i] == '\0') {
+                    if (tokens[0][i - 1] == '"')
+                        tokens[0][i - 1] = '\0';
+                    break;
+                }
+        }
+
+        tokens++;
+    }
+
+}
+
 void run_program()
 {
     int n = 0;
@@ -153,8 +198,11 @@ void run_program()
     tokenize();
     tokens = (char**) tok_buf.gb_data;
 
-    /* Replace ~ the home dir */
+    /* Replace ~ with the home dir */
     replace_home_dir(tokens);
+
+    /* Replace ~ with the home dir */
+    remove_quotes(tokens);
 
     /* Create some pipes then... */
     pipe(fd);
@@ -179,8 +227,8 @@ void run_program()
         if (tokens[k] != NULL && tokens[k][0] == '<') {
             close(fd[0]);
 
-            CHECK((fd[0] = open(tokens[k + 1], O_RDONLY)),
-                    "Bad filename (%d): %s\n", errno, tokens[k + 1])
+            if ((fd[0] = open(tokens[k + 1], O_RDONLY)) == -1)
+                ERROR("Bad filename: %s\n", tokens[k + 1])
 
             k += 3;
         }
@@ -199,8 +247,8 @@ void run_program()
         if (tokens[k] != NULL && tokens[k][0] == '>') {
             if (fd[1] != STDOUT_FILENO) close(fd[1]);
 
-            CHECK((fd[1] = open(tokens[k + 1], O_CREAT | O_RDWR)),
-                "Bad filename (%d): %s\n", errno, tokens[k + 1])
+            if ((fd[1] = open(tokens[k + 1], O_CREAT | O_RDONLY)) == -1)
+                ERROR("Bad filename: %s\n", tokens[k + 1])
 
             /* Append */
             if (tokens[k][1] == '>')
@@ -242,62 +290,59 @@ void run_program()
     }
 
     /* Wait for children to die */
-    while (n-- > 0)
-        wait(NULL);
+    while (n-- > 0) {
+        struct rusage usage;
+
+        wait3(NULL, 0, &usage);
+        rusage_add(&total_usage, &usage);
+    }
 
     free(tok_buf.gb_data);
     free(ext_buf.gb_data);
 }
 
-void read_line(int fd)
+int read_line(int fd)
 {
     size_t i = 0;
     char c = '\0';
 
     do {
         if (read(fd, &c, sizeof(char)) != sizeof(char))
-            exit(-1);
+            return -1;
         input_buffer[i++] = c;
     } while (c != '\n' && i < INPUT_SIZE);
 
     input_buffer[i - 1] = '\0';
+    return 0;
 }
 
-int readSushrc() {
-
+void readsushrc()
+{
     /* this function will read all of the lines from the file and print them */
-    char homedir[INPUT_SIZE];
-    char *homeenv; 
-        if ((homeenv = getenv("HOME")) == NULL) {
-            //If the home variable is not set, we cannot check for the .sushrc file
-            fprintf(stderr, "Error! Please set the $HOME environment variable\n");
-           return -1; //failed to read file
-        }
+    char *home; 
+    FILE *fid;
 
-        //Make sure to copy the content of the pointer, not the pointer
-        strcpy(homedir, homeenv);
-        strcat(homedir,"/.sushrc");
-        
-    FILE *fid = fopen(homedir,"r");
-    if(fid == NULL) {
-        printf("%s not found\n", homedir);
-        return -1; //failed to read file
-    }
+    if ((home = getenv("HOME")) == NULL)
+        //If the home variable is not set, we cannot check for the .sushrc file
+        ERROR("Error! Please set the $HOME environment variable\n");
 
+    /* Build path */
+    if (snprintf(input_buffer, sizeof(input_buffer), "%s%s",
+                home, "/.sushrc") == sizeof(input_buffer))
+        return;
+
+    if ((fid = fopen(input_buffer, "r")) == NULL)
+        ERROR("%s not found\n", input_buffer);
 
     char buf[INPUT_SIZE];
     // reads text in from .sushrc file
     while (fgets(buf, sizeof(buf), fid)) {
         printf("%s", buf);
-        buf[(strlen(buf)) -1] = '\0'; //set a terminate token at the end of the string.
+        buf[(strlen(buf)) - 1] = '\0'; //set a terminate token at the end of the string.
         strcpy(input_buffer, buf);
         run_program();
     }
     fclose(fid);
-
-    
-
-return 1; // read file success
 }
 
 int main(int argc, const char** argv)
@@ -313,12 +358,11 @@ int main(int argc, const char** argv)
     signal(SIGUSR1, signal_handle);
     signal(SIGUSR2, signal_handle);
 
-    /* 
-     * Read .sushrc if exists
-     * line-by-line send to command handler
-     */
-    readSushrc();
+    /* Setup */
+    memset(&total_usage, '\0', sizeof(struct rusage));
 
+    /* Read .sushrc if exists */
+    readsushrc();
 
     while (1) {
         /* Setup */
@@ -331,7 +375,10 @@ int main(int argc, const char** argv)
         fflush(stdout);
 
         /* Read in string */
-        read_line(STDIN_FILENO);
+        if (read_line(STDIN_FILENO) == -1) {
+            fprintf(stderr, "Error reading stdin\n");
+            return 0;
+        }
 
         /* Run the program */
         run_program();

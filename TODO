@@ -1,5 +1,3 @@
-[ ] Read from .sushrc at start up
-[ ] Add more comments
-[ ] Add SIGUSR1 & SIGUSR2 handlers
+[~] Fix Sigchld hand bug
 [ ] Fix the umask bug
-[ ] Handling quotes
+[ ] Add more comments
