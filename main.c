@@ -36,24 +36,13 @@ struct gbuf_t ext_buf;
 #include "accounting.c"
 #include "commandHandler.c"
 
-volatile int r = 0;
+struct rusage child_stat;
 
 void signal_handle(int sig)
 {
-    if (sig & SIGINT) {
-        /* Catch and forward SEGINT to group (children) */
-        if (r--)
-            return;
+    if (sig & SIGCHLD) {
 
-        /* Mechanism for ignoring forwarded signals */
-        r = 1;
-        kill(0, sig);
-    } else if (sig & SIGCHLD) {
-        struct rusage usage;
-
-        /* Wait for the child and total rusage */
-        wait3(NULL, 0, &usage);
-        rusage_print(&usage);
+        rusage_print(&child_stat);
     } else if (sig & SIGUSR1) {
         struct rusage usage;
 
@@ -250,7 +239,7 @@ void run_program()
             if (fd[1] != STDOUT_FILENO) close(fd[1]);
 
             printf("%s\n", tokens[k + 1]);
-            if ((fd[1] = open(tokens[k + 1], O_CREAT | O_RDWR)) == -1)
+            if ((fd[1] = open(tokens[k + 1], O_CREAT | O_RDWR, 0640)) == -1)
                 ERROR("Bad filename: %s\n", tokens[k + 1])
 
             /* Append */
@@ -271,6 +260,7 @@ void run_program()
                 // Child
                 dup2(fd[0], STDIN_FILENO);
                 dup2(fd[1], STDOUT_FILENO);
+                signal(SIGINT, SIG_DFL);
 
                 execvp(tokens[0], (char * const*) tokens);
                 printf("Could not exec your command: %s\n", tokens[0]);
@@ -293,7 +283,8 @@ void run_program()
 
     /* Wait for children to die */
     while (n-- > 0)
-        wait(NULL);
+        if (wait3(NULL, 0, &child_stat) == -1)
+            n++;
 
     free(tok_buf.gb_data);
     free(ext_buf.gb_data);
@@ -350,7 +341,7 @@ int main(int argc, const char** argv)
 
     /* Register signal handers */
     setsid();
-    signal(SIGINT, signal_handle);
+    signal(SIGINT, SIG_IGN);
     signal(SIGCHLD, signal_handle);
     signal(SIGUSR1, signal_handle);
     signal(SIGUSR2, signal_handle);
@@ -366,16 +357,13 @@ int main(int argc, const char** argv)
         if ((prompt = getenv("PS1")) == NULL)
             prompt = "#";
 
-        prompt = "#";
         /* Print prompt */
         printf("%s ", prompt);
         fflush(stdout);
 
         /* Read in string */
-        if (read_line(STDIN_FILENO) == -1) {
-            fprintf(stderr, "Error reading stdin\n");
+        if (read_line(STDIN_FILENO) == -1)
             return 0;
-        }
 
         /* Run the program */
         run_program();

@@ -2,25 +2,24 @@
 
 void rusage_add(struct rusage* dest, struct rusage* src)
 {
-    dest->ru_utime.tv_sec += src->ru_utime.tv_sec;
-    dest->ru_utime.tv_usec+= src->ru_utime.tv_usec;
-    dest->ru_stime.tv_sec += src->ru_stime.tv_sec;
-    dest->ru_stime.tv_usec+= src->ru_stime.tv_usec;
-    dest->ru_maxrss     += src->ru_maxrss;
-    dest->ru_ixrss      += src->ru_ixrss;
-    dest->ru_idrss      += src->ru_idrss;
-    dest->ru_isrss      += src->ru_isrss;
-    dest->ru_minflt     += src->ru_minflt;
-    dest->ru_majflt     += src->ru_majflt;
-    dest->ru_nswap      += src->ru_nswap;
-    dest->ru_inblock    += src->ru_inblock;
-    dest->ru_oublock    += src->ru_oublock;
-    dest->ru_msgsnd     += src->ru_msgsnd;
-    dest->ru_msgrcv     += src->ru_msgrcv;
-    dest->ru_nsignals   += src->ru_nsignals;
-    dest->ru_nvcsw      += src->ru_nvcsw;
-    dest->ru_nivcsw     += src->ru_nivcsw;
-    
+    dest->ru_utime.tv_sec += (double) src->ru_utime.tv_sec;
+    dest->ru_utime.tv_usec+= (double) src->ru_utime.tv_usec;
+    dest->ru_stime.tv_sec += (double) src->ru_stime.tv_sec;
+    dest->ru_stime.tv_usec+= (double) src->ru_stime.tv_usec;
+    dest->ru_maxrss     += (double) src->ru_maxrss;
+    dest->ru_ixrss      += (double) src->ru_ixrss;
+    dest->ru_idrss      += (double) src->ru_idrss;
+    dest->ru_isrss      += (double) src->ru_isrss;
+    dest->ru_minflt     += (double) src->ru_minflt;
+    dest->ru_majflt     += (double) src->ru_majflt;
+    dest->ru_nswap      += (double) src->ru_nswap;
+    dest->ru_inblock    += (double) src->ru_inblock;
+    dest->ru_oublock    += (double) src->ru_oublock;
+    dest->ru_msgsnd     += (double) src->ru_msgsnd;
+    dest->ru_msgrcv     += (double) src->ru_msgrcv;
+    dest->ru_nsignals   += (double) src->ru_nsignals;
+    dest->ru_nvcsw      += (double) src->ru_nvcsw;
+    dest->ru_nivcsw     += (double) src->ru_nivcsw;
 }
 /* Prints all of the values in formating in accordance to the man page associated
 * with the rusage function. */
